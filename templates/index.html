@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Speech with Live Captions</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+        }
+
+        .upload-section.dragover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+            transform: scale(1.02);
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+            margin-bottom: 10px;
+        }
+
+        .file-input-label:hover {
+            transform: translateY(-2px);
+        }
+
+        #pdfInput {
+            display: none;
+        }
+
+        .file-name {
+            color: #666;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        .player-section {
+            display: none;
+            margin-bottom: 30px;
+        }
+
+        .player-section.active {
+            display: block;
+        }
+
+        .audio-player {
+            width: 100%;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        .captions-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 100px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .caption {
+            color: #333;
+            line-height: 1.6;
+            font-size: 1em;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .caption.active {
+            color: #667eea;
+            font-weight: 600;
+            background: #e8eaf6;
+            padding: 10px;
+            border-radius: 5px;
+            margin: -10px;
+            padding-left: 10px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95em;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status.active {
+            display: block;
+        }
+
+        .status.loading {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status.success {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: #1976d2;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .empty-captions {
+            color: #999;
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 PDF to Speech</h1>
+        <p class="subtitle">Upload a PDF and listen with live captions</p>
+
+        <!-- Status Messages -->
+        <div id="status" class="status"></div>
+
+        <!-- Upload Section -->
+        <div class="upload-section" id="uploadSection">
+            <label for="pdfInput" class="file-input-label">
+                📁 Choose PDF File
+            </label>
+            <input type="file" id="pdfInput" accept=".pdf" />
+            <div class="file-name" id="fileName"></div>
+        </div>
+
+        <!-- Player Section -->
+        <div class="player-section" id="playerSection">
+            <!-- Audio Player -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin-bottom: 10px; color: #333;">🔊 Audio Player</h3>
+                <audio id="audioPlayer" class="audio-player" controls>
+                    Your browser does not support the audio element.
+                </audio>
+            </div>
+
+            <!-- Captions -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin-bottom: 10px; color: #333;">📝 Live Captions</h3>
+                <div class="captions-box" id="captionsBox">
+                    <div class="empty-captions">Captions will appear here...</div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <button class="btn-primary" onclick="resetSession()">🔄 Upload New PDF</button>
+                <button class="btn-secondary" onclick="endSession()">❌ End Session</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const pdfInput = document.getElementById('pdfInput');
+        const fileNameDisplay = document.getElementById('fileName');
+        const uploadSection = document.getElementById('uploadSection');
+        const playerSection = document.getElementById('playerSection');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const captionsBox = document.getElementById('captionsBox');
+        const statusDiv = document.getElementById('status');
+        const uploadSectionDiv = document.getElementById('uploadSection');
+
+        let currentCaptions = [];
+        let currentAudioUrl = null;
+
+        // File input change
+        pdfInput.addEventListener('change', function(e) {
+            if (this.files.length > 0) {
+                const fileName = this.files[0].name;
+                fileNameDisplay.textContent = `✓ Selected: ${fileName}`;
+                uploadPDF(this.files[0]);
+            }
+        });
+
+        // Drag and drop
+        uploadSectionDiv.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSectionDiv.classList.add('dragover');
+        });
+
+        uploadSectionDiv.addEventListener('dragleave', () => {
+            uploadSectionDiv.classList.remove('dragover');
+        });
+
+        uploadSectionDiv.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSectionDiv.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                pdfInput.files = files;
+                const fileName = files[0].name;
+                fileNameDisplay.textContent = `✓ Selected: ${fileName}`;
+                uploadPDF(files[0]);
+            } else {
+                showStatus('Please drop a PDF file', 'error');
+            }
+        });
+
+        function uploadPDF(file) {
+            const formData = new FormData();
+            formData.append('pdf_file', file);
+
+            showStatus('<div class="spinner"></div> Processing PDF...', 'loading');
+
+            fetch('/api/upload-pdf', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentCaptions = data.captions;
+                    loadAudio();
+                    playerSection.classList.add('active');
+                    showStatus('✓ PDF processed successfully!', 'success');
+                } else {
+                    showStatus('Error: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                showStatus('Error: ' + error.message, 'error');
+                console.error('Error:', error);
+            });
+        }
+
+        function loadAudio() {
+            audioPlayer.src = '/api/get-audio';
+            updateCaptions();
+            
+            // Update captions as audio plays
+            audioPlayer.addEventListener('timeupdate', updateActiveCaption);
+        }
+
+        function updateCaptions() {
+            captionsBox.innerHTML = '';
+            
+            if (currentCaptions.length === 0) {
+                captionsBox.innerHTML = '<div class="empty-captions">No captions available</div>';
+                return;
+            }
+
+            currentCaptions.forEach((caption, index) => {
+                const captionEl = document.createElement('div');
+                captionEl.className = 'caption';
+                captionEl.id = `caption-${index}`;
+                captionEl.textContent = caption.text;
+                captionsBox.appendChild(captionEl);
+            });
+        }
+
+        function updateActiveCaption() {
+            const currentTime = audioPlayer.currentTime;
+            
+            currentCaptions.forEach((caption, index) => {
+                const captionEl = document.getElementById(`caption-${index}`);
+                
+                // Assuming ~2 seconds per caption
+                const captionStart = caption.timestamp;
+                const captionEnd = caption.timestamp + 2;
+                
+                if (currentTime >= captionStart && currentTime < captionEnd) {
+                    captionEl.classList.add('active');
+                    // Scroll into view
+                    captionEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    captionEl.classList.remove('active');
+                }
+            });
+        }
+
+        function resetSession() {
+            pdfInput.value = '';
+            fileNameDisplay.textContent = '';
+            playerSection.classList.remove('active');
+            audioPlayer.src = '';
+            captionsBox.innerHTML = '<div class="empty-captions">Captions will appear here...</div>';
+            currentCaptions = [];
+            statusDiv.classList.remove('active');
+        }
+
+        function endSession() {
+            fetch('/api/end-session', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                showStatus('✓ Session ended. All data cleared.', 'success');
+                resetSession();
+            })
+            .catch(error => {
+                showStatus('Error: ' + error.message, 'error');
+                console.error('Error:', error);
+            });
+        }
+
+        function showStatus(message, type) {
+            statusDiv.innerHTML = message;
+            statusDiv.className = `status active ${type}`;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.classList.remove('active');
+                }, 3000);
+            }
+        }
+    </script>
+</body>
+</html>
